@@ -55,6 +55,7 @@ from scapy.layers.tls.extensions import (
     TLS_Ext_PostHandshakeAuth,
     TLS_Ext_ServerName,
     TLS_Ext_SignatureAlgorithms,
+    TLS_Ext_RenegotiationInfo,
     TLS_Ext_SupportedGroups,
     TLS_Ext_SupportedVersion_CH,
     TLS_Ext_SupportedVersion_SH,
@@ -397,33 +398,33 @@ class TLSClientAutomaton(_TLSAutomaton):
             p = self.client_hello
         else:
             p = TLSClientHello()
-            ext = []
-            sigs = ["sha1+rsa", "sha256+rsa", "sha384+rsa", "sha1+ecdsa", "sha256+ecdsa", "sha384+ecdsa", "sha384+rsaepss", "sha384+rsapss"]
-            if self.sg != None:
-                supported_groups = self.sg
+        ext = []
+        sigs = ["sha1+rsa", "sha256+rsa", "sha384+rsa", "sha1+ecdsa", "sha256+ecdsa", "sha384+ecdsa", "sha384+rsaepss", "sha384+rsapss"]
+        if self.sg != None:
+            supported_groups = self.sg
             # Add TLS_Ext_SignatureAlgorithms for TLS 1.2 ClientHello
-            if self.cur_session.advertised_tls_version == 0x0303:
-                if self.empty_pubkey == True:
-                    ext += TLS_Ext_SupportedGroups(groups=supported_groups)
-                if self.specify_sig_alg:
-                    ext += [TLS_Ext_SignatureAlgorithms(sig_algs=self.specify_sig_alg)]
-                    r = hex(self.specify_sig_alg)
-                    print(" ")
-                    print("Signature Algorithm used in Client Hello Message: [%s]" % r)
-                    print(" ")
-                else:
-                    ext += [TLS_Ext_SignatureAlgorithms(sig_algs=sigs)]
-            if self.non_zero_renegotiation_info == True:
-                ext += TLS_Ext_RenegotiationInfo(renegotiated_connection=0x1, reneg_conn_len=0x1)
-            elif self.valid_renegotiation_info == True or self.no_renegotiation_info_2nd_ch == True or self.altered_renegotiation_info == True:
-                ext += TLS_Ext_RenegotiationInfo(reneg_conn_len=0x0)
-            # Add TLS_Ext_ServerName
-            if self.server_name:
-                ext += TLS_Ext_ServerName(
-                    servernames=[ServerName(servername=self.server_name)]
-                )
-            p.ext = ext
-            self.client_hello = p
+        if self.cur_session.advertised_tls_version == 0x0303:
+            if self.empty_pubkey == True:
+                ext += TLS_Ext_SupportedGroups(groups=supported_groups)
+            if self.specify_sig_alg:
+                ext += [TLS_Ext_SignatureAlgorithms(sig_algs=self.specify_sig_alg)]
+                r = hex(self.specify_sig_alg)
+                print(" ")
+                print("Signature Algorithm used in Client Hello Message: [%s]" % r)
+                print(" ")
+            else:
+                ext += [TLS_Ext_SignatureAlgorithms(sig_algs=sigs)]
+        if self.non_zero_renegotiation_info == True:
+            ext += TLS_Ext_RenegotiationInfo(renegotiated_connection=0x1, reneg_conn_len=0x1)
+        elif self.valid_renegotiation_info == True or self.no_renegotiation_info_2nd_ch == True or self.altered_renegotiation_info == True:
+            ext += TLS_Ext_RenegotiationInfo(reneg_conn_len=0x0)
+        # Add TLS_Ext_ServerName
+        if self.server_name:
+            ext += TLS_Ext_ServerName(
+                servernames=[ServerName(servername=self.server_name)]
+            )
+        p.ext = ext
+        self.client_hello = p
         self.add_msg(p)
         p.display()
         if self.specify_sig_alg:

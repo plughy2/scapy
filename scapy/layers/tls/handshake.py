@@ -299,6 +299,7 @@ class TLSClientHello(_TLSHandshake):
 
         # if no ciphersuites were provided, we add a few usual, supported
         # ciphersuites along with the appropriate extensions
+        s = self.tls_session
         if self.ciphers is None:
             cipherstart = 39 + (self.sidlen or 0)
             if s.scsv_renegotiation_info == True:
@@ -743,7 +744,11 @@ class TLS13ServerHello(TLSServerHello):
             shts = s.tls13_derived_secrets["server_handshake_traffic_secret"]
             s.prcs.tls13_derive_keys(shts)
 
-
+class TLS13ServerHelloCC(TLSServerHello):
+    """ TLS 1.3 ServerHello """
+    name = "TLS 1.3 Handshake - Server Hello"
+    fields_desc = _tls_13_server_hello_fields
+    
 ###############################################################################
 #   HelloRetryRequest                                                         #
 ###############################################################################

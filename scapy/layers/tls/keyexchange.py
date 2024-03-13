@@ -17,6 +17,7 @@ from scapy.error import warning
 from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
     FieldListField, PacketField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField
+from scapy.utils import randstring, repr_hex
 from scapy.compat import orb
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
