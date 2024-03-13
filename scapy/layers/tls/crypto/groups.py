@@ -407,7 +407,8 @@ _tls_named_curves = {1: "sect163k1", 2: "sect163r1", 3: "sect163r2",
                      29: "x25519", 30: "x448",
                      0xff01: "arbitrary_explicit_prime_curves",
                      0xff02: "arbitrary_explicit_char2_curves"}
-
+                     
+_nist_curves = {23: "secp256r1", 24: "secp384r1", 25: "secp521r1"}
 _tls_named_groups = {}
 _tls_named_groups.update(_tls_named_ffdh_groups)
 _tls_named_groups.update(_tls_named_curves)
