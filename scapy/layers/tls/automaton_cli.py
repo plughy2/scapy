@@ -427,7 +427,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_msg(p)
         p.display()
         if self.specify_sig_alg:
-        p.display()
+            p.display()
         raise self.ADDED_CLIENTHELLO()
 
     @ATMT.state()
@@ -922,7 +922,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                     self.PREPARE_CLIENTFLIGHT1_REG)
         else:
             self.get_next_msg(30, 1)
-                self.raise_on_packet(TLSHelloRequest,
+         self.raise_on_packet(TLSHelloRequest,
                     self.PREPARE_CLIENTFLIGHT1_REG)
         raise self.PREPARE_CLIENTFLIGHT1_REG()
 

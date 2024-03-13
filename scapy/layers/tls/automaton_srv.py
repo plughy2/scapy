@@ -1480,7 +1480,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         connection_id = randstring(16)
         p = SSLv2ServerHello(cert=cert,
                              ciphers=ciphers,
-                             version=version
+                             version=version,
                              connection_id=connection_id)
         self.add_msg(p)
         raise self.SSLv2_ADDED_SERVERHELLO()

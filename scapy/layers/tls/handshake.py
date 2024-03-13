@@ -1126,7 +1126,7 @@ class TLSServerKeyExchange(_TLSHandshake):
             else:
                 cls = Raw()
             self.sig = cls
-                if s.specify_sig_alg:
+            if s.specify_sig_alg:
                 self.sig.sig_alg = s.specify_sig_alg
                 r = hex(self.sig.sig_alg)
                 print(" ")
@@ -1307,7 +1307,7 @@ class TLSCertificateVerify(_TLSHandshake):
             if s.connection_end == "client":
                 self.sig._update_sig(m, s.client_key)
                 s.altered_signature = False
-                    if s.altered_signature == True:
+                if s.altered_signature == True:
                     print(" ")
                     print("Certificate Verify Message Before Test Client Alteration: [%s]" % repr_hex(self.sig.sig_val))
                     print(" ")
