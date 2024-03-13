@@ -22,6 +22,8 @@ import socket
 import binascii
 import struct
 import time
+import secrets
+from scapy.error import log_runtime, warning
 
 from scapy.config import conf
 from scapy.packet import Raw
@@ -33,18 +35,18 @@ from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.session import tlsSession
-from scapy.layers.tls.crypto.groups import _tls_named_groups
+from scapy.layers.tls.crypto.groups import _tls_named_groups, _nist_curves 
 from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH, \
     TLS_Ext_SupportedGroups, TLS_Ext_Cookie, \
     TLS_Ext_SignatureAlgorithms, TLS_Ext_PSKKeyExchangeModes, \
     TLS_Ext_EarlyDataIndicationTicket
-from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH, \
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH, TLS_Ext_KeyShare_SHCC, \
     KeyShareEntry, TLS_Ext_KeyShare_HRR, TLS_Ext_PreSharedKey_CH, \
     TLS_Ext_PreSharedKey_SH
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, TLSFinished, \
     TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange, \
-    _ASN1CertAndExt, TLS13ServerHello, TLS13Certificate, TLS13ClientHello, \
+    _ASN1CertAndExt, TLS13ServerHello, TLS13ServerHelloCC, TLS13Certificate, TLS13ClientHello, \
     TLSEncryptedExtensions, TLS13HelloRetryRequest, TLS13CertificateRequest, \
     TLS13KeyUpdate, TLS13NewSessionTicket
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
@@ -88,6 +90,26 @@ class TLSServerAutomaton(_TLSAutomaton):
     """
 
     def parse_args(self, server="127.0.0.1", sport=4433,
+                   hello_reset=False,
+                   plain_ee=False,
+                   missing_finished_message=False,
+                   altered_signature=False,
+                   altered_finish=False,
+                   altered_y_coordinate=False,
+                   undefined_TLS_version=None,
+                   version_confusion=False,
+                   invalid_supported_versions=False,
+                   version=None,
+                   specify_cipher=None,
+                   specify_sig_alg=None,
+                   explicit_ecdh_curve=False,
+                   empty_certificate=False,
+                   downgrade_protection=None,
+                   non_zero_renegotiation_info=False,
+                   altered_renegotiation_info=False,
+                   verify_data=None,
+                   valid_renegotiation_info=False,
+                   altered_legacy_session_id=False,
                    mycert=None, mykey=None,
                    preferred_ciphersuite=None,
                    client_auth=False,
@@ -128,6 +150,29 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.cookie = cookie
         self.psk_secret = psk
         self.psk_mode = psk_mode
+        #
+        self.altered_finish = altered_finish 
+        self.plain_ee = plain_ee
+        self.missing_finished_message = missing_finished_message
+        self.specify_cipher = specify_cipher
+        self.altered_signature = altered_signature
+        self.altered_y_coordinate = altered_y_coordinate
+        self.version_confusion = version_confusion
+        self.invalid_supported_versions = invalid_supported_versions
+        self.undefined_TLS_version = undefined_TLS_version
+        self.specify_sig_alg = specify_sig_alg
+        self.explicit_ecdh_curve = explicit_ecdh_curve
+        self.empty_certificate = empty_certificate
+        self.downgrade_protection = downgrade_protection
+        self.verify_data=verify_data
+        self.altered_legacy_session_id = altered_legacy_session_id
+        self.renegotiated_connection = None
+        self.specify_tls_version = version
+        self.hello_reset = hello_reset
+        self.non_zero_renegotiation_info = non_zero_renegotiation_info
+        self.valid_renegotiation_info = valid_renegotiation_info
+        self.altered_renegotiation_info = altered_renegotiation_info
+
         if handle_session_ticket is None:
             handle_session_ticket = session_ticket_file is not None
         if handle_session_ticket:
@@ -153,12 +198,34 @@ class TLSServerAutomaton(_TLSAutomaton):
             if s.client_certs:
                 self.vprint("Client certificate chain: %r" % s.client_certs)
 
+            if s.tls_version <= 0x0303:
+                self.vprint()
+                self.vprint()
+                print("CLIENT_RANDOM %s" % repr_hex(s.client_random), repr_hex(ms))
+                self.vprint()
             if s.tls_version >= 0x0304:
                 res_secret = s.tls13_derived_secrets["resumption_secret"]
                 self.vprint("Resumption master secret : %s" %
                             repr_hex(res_secret))
+                self.vprint()
+                self.vprint()
+                print("CLIENT_HANDSHAKE_TRAFFIC_SECRET %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["client_handshake_traffic_secret"]))
+                print("SERVER_HANDSHAKE_TRAFFIC_SECRET %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["server_handshake_traffic_secret"]))
+                print("CLIENT_TRAFFIC_SECRET_0 %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["client_traffic_secrets"][0]))
+                print("SERVER_TRAFFIC_SECRET_0 %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["server_traffic_secrets"][0]))
+                print("EXPORTER_SECRET %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["exporter_secret"]))
             self.vprint()
 
+    def print_tls13secrets(self):
+        s = self.cur_session
+        self.vprint()
+        self.vprint()
+        print("CLIENT_HANDSHAKE_TRAFFIC_SECRET %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["client_handshake_traffic_secret"]))
+        print("SERVER_HANDSHAKE_TRAFFIC_SECRET %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["server_handshake_traffic_secret"]))
+        print("CLIENT_TRAFFIC_SECRET_0 %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["client_traffic_secrets"][0]))
+        print("SERVER_TRAFFIC_SECRET_0 %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["server_traffic_secrets"][0]))
+        print("EXPORTER_SECRET %s" % repr_hex(s.client_random), repr_hex(s.tls13_derived_secrets["exporter_secret"]))
+    
     def http_sessioninfo(self):
         header = "HTTP/1.1 200 OK\r\n"
         header += "Server: Scapy TLS Extension\r\n"
@@ -243,6 +310,27 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.cur_session = tlsSession(connection_end="server")
         self.cur_session.server_certs = [self.mycert]
         self.cur_session.server_key = self.mykey
+        #
+        s = self.cur_session
+        s.altered_finish = self.altered_finish
+        s.version_confusion = self.version_confusion
+        s.invalid_supported_versions = self.invalid_supported_versions
+        s.plain_ee = self.plain_ee
+        s.verify_data = self.verify_data
+        s.missing_finished_message = self.missing_finished_message
+        s.undefined_TLS_version =  self.undefined_TLS_version
+        s.altered_signature = self.altered_signature
+        s.specify_sig_alg = self.specify_sig_alg
+        s.explicit_ecdh_curve = self.explicit_ecdh_curve
+        s.empty_certificate = self.empty_certificate
+        s.downgrade_protection = self.downgrade_protection
+        s.non_zero_renegotiation_info = self.non_zero_renegotiation_info
+        s.valid_renegotiation_info = self.valid_renegotiation_info
+        s.hello_reset = self.hello_reset
+        s.altered_legacy_session_id = self.altered_legacy_session_id
+        s.renegotiated_connection = self.renegotiated_connection
+        s.altered_renegotiation_info =  self.altered_renegotiation_info
+        #
         if isinstance(self.mykey, PrivKeyRSA):
             self.cur_session.server_rsa_key = self.mykey
         # elif isinstance(self.mykey, PrivKeyECDSA):
@@ -262,11 +350,12 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=1)
     def tls13_should_handle_ClientHello(self):
-        self.raise_on_packet(TLS13ClientHello,
-                             self.tls13_HANDLED_CLIENTHELLO)
-        if self.cur_session.advertised_tls_version == 0x0304:
+        if self.specify_tls_version <= 0x0303:
             self.raise_on_packet(TLSClientHello,
-                                 self.tls13_HANDLED_CLIENTHELLO)
+                             self.HANDLED_CLIENTHELLO)
+        else:
+            self.raise_on_packet(TLS13ClientHello,
+                             self.tls13_HANDLED_CLIENTHELLO)
 
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=2)
     def should_handle_ClientHello(self):
@@ -275,6 +364,22 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CLIENTHELLO(self):
+        if self.specify_tls_version == 0x0200 or self.specify_tls_version == 0x0002:
+            raise self.SSLv2_HANDLED_CLIENTHELLO()
+        p=self.cur_pkt
+        self.supported_tls13_tls12 = False
+        if self.cur_session.advertised_tls_version >= 0x0304 and self.specify_tls_version <= 0x0303:
+            versionlist = []
+            tls13_12_list = [772, 771]
+            for item in p['TLS Extension - Supported Versions (for ClientHello)'].versions[:]:
+                if hex(item) == '0x303' or hex(item) == '0x304':
+                    versionlist.append(item)
+            if all(item in versionlist for item in tls13_12_list):
+                self.supported_tls13_tls12 = True
+        if self.specify_tls_version:
+            self.cur_session.advertised_tls_version = self.specify_tls_version
+        self.vprint("Contents of Client Hello Received")
+        p.show()
         """
         We extract cipher suites candidates from the client's proposition.
         """
@@ -320,7 +425,36 @@ class TLSServerAutomaton(_TLSAutomaton):
         c = usable_suites[0]
         if self.preferred_ciphersuite in usable_suites:
             c = self.preferred_ciphersuite
-        self.add_msg(TLSServerHello(cipher=c))
+        if self.specify_cipher != None:
+            #Allow for use case where ciphersuite is specifed and client only supports TLS 1.2
+            c = self.specify_cipher
+        if self.specify_tls_version <= 0x0303:
+            v = self.specify_tls_version
+            # Need to remove TLS 1.3 ciphersuites when specifying the test server use TLS 1.2:
+            if self.supported_tls13_tls12 == True:
+                for item in usable_suites[:]:
+                    if hex(item) == '0x1301' or hex(item) == '0x1302' or hex(item) == '0x1303'or hex(item) == '0x1304' or hex(item) == '0x1305':
+                        usable_suites.remove(item)
+                c = usable_suites[0]
+                if self.specify_cipher != None:
+                    #Allow for use case where ciphersuite is specifed and client supports TLS 1.3 and 1.2
+                    c = self.specify_cipher
+            if self.specify_tls_version <= 0x0301 and self.supported_tls13_tls12 == False:
+                # When the version is TLS 1.1, 1.0, or SSL v3 need to use the default ciphersuite of TLS_RSA_WITH_AES_128_CBC_SHA
+                c = 0x002F
+            if self.non_zero_renegotiation_info == True:
+                ext = [TLS_Ext_RenegotiationInfo(reneg_conn_len=0x1)]
+                self.add_msg(TLSServerHello(cipher=c,version=v, ext=ext))
+            if self.valid_renegotiation_info == True or self.altered_renegotiation_info == True:
+                ext = [TLS_Ext_RenegotiationInfo(reneg_conn_len=0x0)]
+                self.add_msg(TLSServerHello(cipher=c,version=v, ext=ext))
+            else:
+                self.add_msg(TLSServerHello(cipher=c,version=v))
+        elif self.specify_tls_version == 0x0303 and self.version_confusion == True:
+            v = self.specify_tls_version
+            self.add_msg(TLSServerHello(cipher=c,version=v))
+        else:
+            self.add_msg(TLSServerHello(cipher=c))
         raise self.ADDED_SERVERHELLO()
 
     @ATMT.state()
@@ -331,7 +465,11 @@ class TLSServerAutomaton(_TLSAutomaton):
     def should_add_Certificate(self):
         c = self.buffer_out[-1].msg[0].cipher
         if not _tls_cipher_suites_cls[c].kx_alg.anonymous:
-            self.add_msg(TLSCertificate(certs=self.cur_session.server_certs))
+            if self.empty_certificate == True:
+                certs = []
+                self.add_msg(TLSCertificate(certs=certs))
+            else:
+                self.add_msg(TLSCertificate(certs=self.cur_session.server_certs))
         raise self.ADDED_CERTIFICATE()
 
     @ATMT.state()
@@ -525,7 +663,11 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.condition(ADDED_CHANGECIPHERSPEC)
     def should_add_ServerFinished(self):
         self.add_record()
-        self.add_msg(TLSFinished())
+        if self.missing_finished_message is True:
+            # send a ServerHelloDone instead of Finished
+            self.add_msg(TLSServerHelloDone())
+        else:
+            self.add_msg(TLSFinished())
         raise self.ADDED_SERVERFINISHED()
 
     @ATMT.state()
@@ -535,18 +677,121 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.condition(ADDED_SERVERFINISHED)
     def should_send_ServerFlight2(self):
         self.flush_records()
+        s = self.cur_session
+        client_verify_data = self.cur_pkt.vdata
+        server_verify_data = s.verify_data
+        self.renegotiated_connection = client_verify_data + server_verify_data
         raise self.SENT_SERVERFLIGHT2()
 
     @ATMT.state()
     def SENT_SERVERFLIGHT2(self):
-        self.vprint("TLS handshake completed!")
-        self.vprint_sessioninfo()
-        if self.is_echo_server:
-            self.vprint("Will now act as a simple echo server.")
-        raise self.WAITING_CLIENTDATA()
+        if self.missing_finished_message is False:
+            self.vprint("TLS handshake completed!")
+            self.vprint_sessioninfo()
+            if self.hello_reset:
+                self.add_msg(TLSHelloRequest())
+                self.flush_records()
+            if self.is_echo_server:
+                self.vprint("Will now act as a simple echo server.")
+            if self.altered_renegotiation_info == True:
+                self.get_next_msg()
+                raise self.RECEIVED_CLIENTFLIGHTREG()
+            raise self.WAITING_CLIENTDATA()
+        else:
+            raise self.WAITING_CLIENTDATA()
 
-    #                       end of TLS handshake                              #
+#                       End of TLS handshake                              #
+#                       Begin of TLS Resumption handshake                              #
+    @ATMT.state()
+    def RECEIVED_CLIENTFLIGHTREG(self):
+        pass
 
+    @ATMT.condition(RECEIVED_CLIENTFLIGHTREG, prio=1)
+    def should_handle_ClientHello2(self):
+        self.raise_on_packet(TLSClientHello,
+                             self.HANDLED_CLIENTHELLO2)
+
+    @ATMT.state()
+    def HANDLED_CLIENTHELLO2(self):
+        """
+        We extract cipher suites candidates from the client's proposition.
+        """
+        if self.specify_tls_version == 0x0200 or self.specify_tls_version == 0x0002:
+            raise self.SSLv2_HANDLED_CLIENTHELLO()
+        p=self.cur_pkt
+        self.supported_tls13_tls12 = False
+        if self.cur_session.advertised_tls_version >= 0x0304 and self.specify_tls_version <= 0x0303:
+            versionlist = []
+            tls13_12_list = [772, 771]
+            for item in p['TLS Extension - Supported Versions (for ClientHello)'].versions[:]:
+                if hex(item) == '0x303' or hex(item) == '0x304':
+                    versionlist.append(item)
+            if all(item in versionlist for item in tls13_12_list):
+                self.supported_tls13_tls12 = True
+        if self.specify_tls_version:
+            self.cur_session.advertised_tls_version = self.specify_tls_version
+        self.vprint("Contents of Client Hello Received")
+        p.show()
+        if isinstance(self.mykey, PrivKeyRSA):
+            kx = "RSA"
+        elif isinstance(self.mykey, PrivKeyECDSA):
+            kx = "ECDSA"
+        if get_usable_ciphersuites(self.cur_pkt.ciphers, kx):
+            raise self.PREPARE_SERVERFLIGHTREG()
+        raise self.NO_USABLE_CIPHERSUITE()
+
+    @ATMT.state()
+    def NO_USABLE_CIPHERSUITE(self):
+        self.vprint("No usable cipher suite!")
+        raise self.CLOSE_NOTIFY()
+
+    @ATMT.condition(RECEIVED_CLIENTFLIGHTREG, prio=2)
+    def missing_ClientHello(self):
+        raise self.MISSING_CLIENTHELLO()
+
+    @ATMT.state(final=True)
+    def MISSING_CLIENTHELLO(self):
+        self.vprint("Missing ClientHello message!")
+        raise self.CLOSE_NOTIFY()
+
+    @ATMT.state()
+    def PREPARE_SERVERFLIGHTREG(self):
+        self.add_record()
+
+    @ATMT.condition(PREPARE_SERVERFLIGHTREG)
+    def should_add_ServerHelloReg(self):
+        """
+        Selecting a cipher suite should be no trouble as we already caught
+        the None case previously.
+
+        Also, we do not manage extensions at all.
+        """
+        if isinstance(self.mykey, PrivKeyRSA):
+            kx = "RSA"
+        elif isinstance(self.mykey, PrivKeyECDSA):
+            kx = "ECDSA"
+        usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
+        c = usable_suites[0]
+        if self.preferred_ciphersuite in usable_suites:
+            c = self.preferred_ciphersuite
+        if self.specify_cipher != None:
+            #Allow for use case where ciphersuite is specifed and client only supports TLS 1.2
+            c = self.specify_cipher
+        if self.specify_tls_version <= 0x0303:
+            v = self.specify_tls_version
+        if self.altered_renegotiation_info == True:
+                self.buffer_out = []
+                self.add_record()
+                #Alter the fifth byte which is the client_verify_data
+                self.altered_renegotiation_info = self.renegotiated_connection[:5] + randstring(1) + self.renegotiated_connection[6:]
+                if self.altered_renegotiation_info == self.renegotiated_connection:
+                    warning("renegotiation_info was not altered.  Run Test Again!")
+                else:
+                    ext = [TLS_Ext_RenegotiationInfo(renegotiated_connection=self.altered_renegotiation_info)]
+                    self.add_msg(TLSServerHello(cipher=c,version=v, ext=ext))
+                    raise self.ADDED_SERVERHELLO()
+ 
+    #                       End of TLS Resumption handshake                              #
     #                       TLS 1.3 handshake                                 #
     @ATMT.state()
     def tls13_HANDLED_CLIENTHELLO(self):
@@ -602,6 +847,39 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def tls13_PREPARE_SERVERFLIGHT1(self):
+        if self.invalid_supported_versions == True:
+            if isinstance(self.mykey, PrivKeyRSA):
+                kx = "RSA"
+            elif isinstance(self.mykey, PrivKeyECDSA):
+                kx = "ECDSA"
+            usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
+            c = usable_suites[0]
+            self.add_record(is_tls13=False)
+            group = next(iter(self.cur_session.tls13_client_pubshares))
+            ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3")]
+            ext += TLS_Ext_KeyShare_SH(server_share=KeyShareEntry(group=group))
+            p = TLS13ServerHello(cipher=c, sid=self.cur_session.sid, ext=ext)
+            Raw(p)
+            p['TLS Extension - Supported Versions (for ServerHello)'].version = 0x0303
+            print ("Content of TLS 1.3 Server Hello specifying version TLS 1.2 in the Supported Versions TLS Extension")
+            p.show()
+            self.add_msg(p)
+            self.flush_records()
+            raise self.tls13_WAITING_CLIENTFLIGHT2()
+
+        if self.version_confusion == True:
+            self.add_record(is_tls13=False)
+            if self.specify_cipher:
+                c = self.specify_cipher
+            group = next(iter(self.cur_session.tls13_client_pubshares))
+            ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3")]
+            ext += TLS_Ext_KeyShare_SHCC(server_share=KeyShareEntry(group=group))
+            p = TLS13ServerHelloCC(cipher=c, sid=self.cur_session.sid, ext=ext)
+            print ("Content of TLS 1.3 Server Hello specifying a TLS 1.2 ciphersuite")
+            p.show()
+            self.add_msg(p)
+            self.flush_records()
+            raise self.tls13_WAITING_CLIENTFLIGHT2()
         self.add_record(is_tls13=False)
 
     def verify_psk_binder(self, psk_identity, obfuscated_age, binder):
@@ -721,8 +999,24 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
-        usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
-        c = usable_suites[0]
+        if self.specify_cipher:
+            c = self.specify_cipher
+        elif self.specify_cipher == 0:
+            # Special use case for sending TLS_NULL_WITH_NULL_NULL 
+            self.add_record(is_tls13=False)
+            c = self.specify_cipher
+            group = next(iter(self.cur_session.tls13_client_pubshares))
+            ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3")]
+            ext += TLS_Ext_KeyShare_SHCC(server_share=KeyShareEntry(group=group))
+            p = TLS13ServerHelloCC(cipher=c, sid=self.cur_session.sid, ext=ext)
+            print ("Content of TLS 1.3 Server Hello specifying the NULL ciphersuite")
+            p.show()
+            self.add_msg(p)
+            self.flush_records()
+            raise self.tls13_WAITING_CLIENTFLIGHT2()
+        else:
+            usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
+            c = usable_suites[0]
         group = next(iter(self.cur_session.tls13_client_pubshares))
         ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3")]
         if (psk_identity and obfuscated_age and psk_key_exchange_mode):
@@ -755,14 +1049,73 @@ class TLSServerAutomaton(_TLSAutomaton):
 
                     ext += [TLS_Ext_PreSharedKey_SH(selected_identity=0)]
                     self.cur_session.tls13_psk_secret = resumption_psk
-        else:
+        elif self.curve and self.altered_y_coordinate == False:
+            s = self.cur_session
+            ext += TLS_Ext_KeyShare_SH(server_share=KeyShareEntry(group=_tls_named_groups[self.curve]))
+
+        elif self.altered_y_coordinate != True and not self.curve:
             # Standard Handshake
             ext += TLS_Ext_KeyShare_SH(server_share=KeyShareEntry(group=group))
 
+        if self.altered_y_coordinate == True and self.curve:
+            s = self.cur_session
+            #m = s.handshake_messages_parsed[-1]
+            ext += TLS_Ext_KeyShare_SH(server_share=KeyShareEntry(group=_tls_named_groups[self.curve]))
+
         if self.cur_session.sid is not None:
-            p = TLS13ServerHello(cipher=c, sid=self.cur_session.sid, ext=ext)
+            if self.altered_legacy_session_id == True:
+                t = self.cur_session.sid
+                t = t[:14] + randstring(1) + t[15:]
+                if t == self.cur_session.sid:
+                    warning("session id was not altered.  Run Test Again!")
+                else:
+                    p = TLS13ServerHello(cipher=c, sid=t, ext=ext)
+                    print("Contents of session id before altering: [%s]" % repr_hex(self.cur_session.sid))
+                    print("Contents of session id after altering:  [%s]" % repr_hex(t))
+            else:
+                p = TLS13ServerHello(cipher=c, sid=self.cur_session.sid, ext=ext)
+            Raw(p)
+            print ("Contents of Server Hello")
+            p.show2()
+            r = TLSEncryptedExtensions(extlen=0)
         else:
-            p = TLS13ServerHello(cipher=c, ext=ext)
+            p = TLS13ServerHello(cipher=c, ext=ext) 
+            Raw(p)
+            print ("Contents of Server Hello")
+            p.show2()
+            r = TLSEncryptedExtensions(extlen=0)
+        #p.show()
+        Raw(p)
+        if self.altered_y_coordinate == True and p['Key Share Entry'][0].group in _nist_curves:
+            y_coordinate = p['Key Share Entry'][0].key_exchange
+            print("Contents of x y coordinate before altering: [%s]" % repr_hex(y_coordinate))
+            altered_y_coordinate = y_coordinate[:-3] + randstring(1) + y_coordinate[-2:]
+            if altered_y_coordinate == y_coordinate:
+                warning("y coordinate was not altered.  Run Test Again!")
+            else:
+                p['Key Share Entry'][0].key_exchange = altered_y_coordinate
+                print("Contents of x y coordinate after altering:  [%s]" % repr_hex(p['Key Share Entry'][0].key_exchange))
+                print(" ")
+        if self.plain_ee is True:
+            r = TLSEncryptedExtensionsNDcPP(extlen=0)
+            print("Sending a TLS 1.3 Server Hello and a Plaintext Encrypted Extension Message")
+            p.show2()
+            r.show2()
+            self.add_msg(p)
+            self.add_msg(r)
+            self.flush_records()
+            p = self.buffer_in
+            if isinstance(p, TLSAlert):
+                raise self.CLOSE_NOTIFY()
+        if self.undefined_TLS_version == 0x0304 or self.undefined_TLS_version == 0x7f13 or self.undefined_TLS_version == 0x7f12:
+            p.version = self.undefined_TLS_version
+            print("Sending a TLS 1.3 Server Hello Handshake with TLS 1.3 (or lower draft) version in the legacy field")
+            p.show2()
+            self.add_msg(p)
+            self.flush_records()
+            p = self.buffer_in
+            if isinstance(p, TLSAlert):
+                raise self.CLOSE_NOTIFY()
         self.add_msg(p)
         raise self.tls13_ADDED_SERVERHELLO()
 
@@ -827,7 +1180,10 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(tls13_ADDED_CERTIFICATEVERIFY)
     def tls13_should_add_Finished(self):
-        self.add_msg(TLSFinished())
+        if self.missing_finished_message is True:
+            self.add_msg(TLS13KeyUpdateCC())
+        else:
+            self.add_msg(TLSFinished())
         raise self.tls13_ADDED_SERVERFINISHED()
 
     @ATMT.state()
@@ -860,8 +1216,11 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_ALERT_FROM_CLIENTCERTIFICATE(self):
-        self.vprint("Received Alert message instead of ClientKeyExchange!")
+        #self.vprint("Received Alert message instead of ClientKeyExchange!")
+        self.vprint("Received Alert message!")
         self.vprint(self.cur_pkt.mysummary())
+        if self.altered_signature or self.altered_finish or self.altered_y_coordinate or self.specify_sig_alg or self.empty_certificate:
+            self.print_tls13secrets()
         raise self.CLOSE_NOTIFY()
 
     # For Middlebox compatibility (see RFC8446, appendix D.4)
@@ -930,6 +1289,9 @@ class TLSServerAutomaton(_TLSAutomaton):
     def TLS13_HANDLED_CLIENTFINISHED(self):
         self.vprint("TLS handshake completed!")
         self.vprint_sessioninfo()
+        if self.hello_reset:
+            self.add_msg(TLSHelloRequest())
+            self.flush_records()
         if self.is_echo_server:
             self.vprint("Will now act as a simple echo server.")
         raise self.WAITING_CLIENTDATA()
@@ -1109,12 +1471,16 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.condition(SSLv2_HANDLED_CLIENTHELLO)
     def sslv2_should_add_ServerHello(self):
         self.add_record(is_sslv2=True)
+        if self.specify_tls_version:
+            version = self.specify_tls_version
         cert = self.mycert
-        ciphers = [0x010080, 0x020080, 0x030080, 0x040080,
-                   0x050080, 0x060040, 0x0700C0]
+        ciphers = self.cur_pkt.ciphers
+        #ciphers = [0x010080, 0x020080, 0x030080, 0x040080,
+        #           0x050080, 0x060040, 0x0700C0]
         connection_id = randstring(16)
         p = SSLv2ServerHello(cert=cert,
                              ciphers=ciphers,
+                             version=version
                              connection_id=connection_id)
         self.add_msg(p)
         raise self.SSLv2_ADDED_SERVERHELLO()
