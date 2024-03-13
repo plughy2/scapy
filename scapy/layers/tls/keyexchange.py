@@ -179,7 +179,10 @@ class _TLSSignature(_GenericTLSSessionInheritance):
             elif self.tls_session.tls_version == 0x0304:
                 # For TLS 1.3 signatures, set the signature
                 # algorithm to RSA-PSS
-                self.sig_alg = 0x0804
+                if s.specify_sig_alg:
+                    self.sig_alg = s.specify_sig_alg
+                else:
+                    self.sig_alg = 0x0804
 
     def _update_sig(self, m, key):
         """
@@ -837,6 +840,16 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
                 self.fill_missing()
             except ImportError:
                 pass
+        s = self.tls_session
+        if s.altered_y_coordinate == True:
+            print("Contents of x y coordinate before altering: [%s]" % repr_hex(self.ecdh_Yc))
+            altered_y_coordinate = self.ecdh_Yc[:-3] + randstring(1) + self.ecdh_Yc[-2:]
+            if altered_y_coordinate == self.ecdh_Yc:
+                warning("y coordinate was not altered.  Run Test Again!")
+            else:
+                self.ecdh_Yc = altered_y_coordinate
+                print("Contents of x y coordinate after altering:  [%s]" % repr_hex(self.ecdh_Yc))
+                print(" ")
         if self.ecdh_Yclen is None:
             self.ecdh_Yclen = len(self.ecdh_Yc)
         return pkcs_i2osp(self.ecdh_Yclen, 1) + self.ecdh_Yc + pay
@@ -950,6 +963,18 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             tls_version = s.advertised_tls_version
         if tls_version >= 0x0301:
             tmp_len = struct.pack("!H", len(enc))
+        if s.altered_pre_master_secret:
+            print(" ")
+            print("Encrypted Pre Master Secret Before Test Client Alteration: [%s]" % repr_hex(enc))
+            print(" ")
+            t = enc[:3] + randstring(1) + enc[4:]
+            if t == enc:
+                warning("Encrypted Pre Master Secret was not altered.  Run Test Again!")
+            else:
+                enc = t
+                #enc = enc[:3] + randstring(1) + enc[4:]
+                print("Encrypted Pre Master Secret After Test Client Alteration: [%s]" % repr_hex(enc))
+                print(" ")
         return tmp_len + enc + pay
 
     def guess_payload_class(self, p):
