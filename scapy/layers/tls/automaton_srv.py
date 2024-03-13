@@ -90,6 +90,9 @@ class TLSServerAutomaton(_TLSAutomaton):
     """
 
     def parse_args(self, server="127.0.0.1", sport=4433,
+                   mycert=None, mykey=None,
+                   preferred_ciphersuite=None,
+                   client_auth=False,
                    hello_reset=False,
                    plain_ee=False,
                    missing_finished_message=False,
@@ -146,7 +149,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.client_auth = client_auth
         self.is_echo_server = is_echo_server
         self.max_client_idle_time = max_client_idle_time
-        self.curve = None
+        self.curve = curve
         self.cookie = cookie
         self.psk_secret = psk
         self.psk_mode = psk_mode
