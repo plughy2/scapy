@@ -218,6 +218,11 @@ _tls_ext_keyshare_cls = {1: TLS_Ext_KeyShare_CH,
 
 _tls_ext_keyshare_hrr_cls = {2: TLS_Ext_KeyShare_HRR}
 
+class TLS_Ext_KeyShare_SHCC(TLS_Ext_Unknown):
+    name = "TLS Extension - Key Share (for ServerHello)"
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
+                   ShortField("len", None),
+                   PacketField("server_share", None, KeyShareEntry)]
 
 class Ticket(Packet):
     name = "Recommended Ticket Construction (from RFC 5077)"
