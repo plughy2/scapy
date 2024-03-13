@@ -301,7 +301,14 @@ class TLSClientHello(_TLSHandshake):
         # ciphersuites along with the appropriate extensions
         if self.ciphers is None:
             cipherstart = 39 + (self.sidlen or 0)
-            s = b"001ac02bc023c02fc027009e0067009c003cc009c0130033002f000a"
+            if s.scsv_renegotiation_info == True:
+                if s.scsv_ctr == True:
+                    # Add TLS_EMPTY_RENEGOTIATION_INFO_SCSV (00ff)
+                    s = b"001ac02bc023c02fc027009e0067009c003cc009c0130033002f00ff"
+                else:
+                    s = b"001ac02bc023c02fc027009e0067009c003cc009c0130033002f000a"
+            else:
+                s = b"001ac02bc023c02fc027009e0067009c003cc009c0130033002f000a"
             p = p[:cipherstart] + hex_bytes(s) + p[cipherstart + 2:]
             if self.ext is None:
                 ext_len = b'\x00\x2c'
@@ -548,11 +555,25 @@ class TLSServerHello(_TLSHandshake):
         s.tls_version = self.version
         if hasattr(self, 'gmt_unix_time'):
             self.random_bytes = msg_str[10:38]
+            if s.downgrade_protection == b'DOWNGRD\x01':
+                t = b'DOWNGRD\x01'
+                self.random_bytes = self.random_bytes[:24] + t + self.random_bytes[32:]
+            if s.downgrade_protection == b'DOWNGRD\x00':
+                t = b'DOWNGRD\x00'
+                self.random_bytes = self.random_bytes[:24] + t + self.random_bytes[32:]
             s.server_random = (struct.pack('!I', self.gmt_unix_time) +
                                self.random_bytes)
         else:
             s.server_random = self.random_bytes
+            if s.downgrade_protection == b'DOWNGRD\x01':
+                t = b'DOWNGRD\x01'
+                s.server_random = s.server_random[:30] + t + s.server_random[38:]
+            if s.downgrade_protection == b'DOWNGRD\x00':
+                t = b'DOWNGRD\x00'
+                s.server_random = s.server_random[:30] + t + s.server_random[38:]
         s.sid = self.sid
+        if s.downgrade_protection != None:
+            print("Contents of Random in Server Hello: [%s]" % s.server_random)
 
         if self.ext:
             for e in self.ext:
@@ -609,6 +630,35 @@ _tls_13_server_hello_fields = [
                                               38))
 ]
 
+class TLSServerHelloCC(_TLSHandshake):
+    name = "TLS Handshake - Server Hello"
+    fields_desc = [ByteEnumField("msgtype", 2, _tls_handshake_type),
+            ThreeBytesField("msglen", None),
+            _TLSVersionField("version", None, _tls_version),
+
+            # _TLSRandomBytesField("random_bytes", None, 32),
+            #ThreeBytesField("msglen", None),
+            #_TLSVersionField("version", None, _tls_version),
+
+            # _TLSRandomBytesField("random_bytes", None, 32),
+            _GMTUnixTimeField("gmt_unix_time", None),
+            _TLSRandomBytesField("random_bytes", None, 28),
+
+            FieldLenField("sidlen", None, length_of="sid", fmt="B"),
+            _SessionIDField("sid", "",
+                length_from=lambda pkt: pkt.sidlen),
+
+            ShortEnumField("cipher", None, _tls_cipher_suites),
+            _CompressionMethodsField("comp", [0],
+                                    _tls_compression_algs,
+                                    itemfmt="B",
+                                    length_from=lambda pkt: 1),
+
+            _ExtensionsLenField("extlen", None, length_of="ext"),
+            _ExtensionsField("ext", None,
+                            length_from=lambda pkt: (
+                                pkt.msglen - (pkt.sidlen or 0) - 40
+                                ))]
 
 class TLS13ServerHello(TLSServerHello):
     """ TLS 1.3 ServerHello """
@@ -1076,7 +1126,24 @@ class TLSServerKeyExchange(_TLSHandshake):
             else:
                 cls = Raw()
             self.sig = cls
-
+                if s.specify_sig_alg:
+                self.sig.sig_alg = s.specify_sig_alg
+                r = hex(self.sig.sig_alg)
+                print(" ")
+                print("Signature Algorithm used in Server Key Exchange Message: [%s]" % r)
+                print(" ")
+            if s.altered_signature == True:
+                print(" ")
+                print("Server Key Exchange Signature Before Test Server Alteration: [%s]" % repr_hex(self.sig.sig_val))
+                print(" ")
+                t = self.sig.sig_val
+                t = t[:3] + randstring(1) + t[4:]
+                if t == self.sig.sig_val:
+                    warning("Server Key Exchange Signature was not altered.  Run Test Again!")
+                else:
+                    self.sig.sig_val = t
+                    print("Server Key Exchange Signature After Test Server Alteration: [%s]" % repr_hex(self.sig.sig_val))
+                    print(" ")
         return _TLSHandshake.build(self, *args, **kargs)
 
     def post_dissection(self, pkt):
@@ -1239,9 +1306,40 @@ class TLSCertificateVerify(_TLSHandshake):
             self.sig = _TLSSignature(tls_session=s)
             if s.connection_end == "client":
                 self.sig._update_sig(m, s.client_key)
+                s.altered_signature = False
+                    if s.altered_signature == True:
+                    print(" ")
+                    print("Certificate Verify Message Before Test Client Alteration: [%s]" % repr_hex(self.sig.sig_val))
+                    print(" ")
+                    #self.sig.sig_val = self.sig.sig_val[:3] + secrets.token_bytes(1) + self.sig.sig_val[4:]
+                    t = self.sig.sig_val
+                    t = t[:3] + randstring(1) + t[4:]
+                    if t == self.sig.sig_val:
+                        warning("Certificate Verify Message was not altered.  Run Test Again!")
+                    else:
+                        self.sig.sig_val = t
+                        #self.sig.sig_val = self.sig.sig_val[:3] + randstring(1) + self.sig.sig_val[4:]
+                        print("Certificate Verify Message After Test Client Alteration: [%s]" % repr_hex(self.sig.sig_val))
+                        print(" ")
             elif s.connection_end == "server":
                 # should be TLS 1.3 only
+                if s.specify_sig_alg:
+                    r = hex(self.sig.sig_alg)
+                    print("Signature Algorithm used in Certificate Verify Message: [%s]" % r)
+                    print(" ")
                 self.sig._update_sig(m, s.server_key)
+                if s.altered_signature == True:
+                    print(" ")
+                    print("Certificate Verify Message Before Test Server Alteration: [%s]" % repr_hex(self.sig.sig_val))
+                    print(" ")
+                    t = self.sig.sig_val
+                    t = t[:3] + randstring(1) + t[4:]
+                    if t == self.sig.sig_val:
+                        warning("Certificate Verify Message was not altered.  Run Test Again!")
+                    else:
+                        self.sig.sig_val = t
+                        print("Certificate Verify Message After Test Server Alteration: [%s]" % repr_hex(self.sig.sig_val))
+                        print(" ")
         return _TLSHandshake.build(self, *args, **kargs)
 
     def post_dissection(self, pkt):
@@ -1398,9 +1496,34 @@ class TLSFinished(_TLSHandshake):
                 ms = s.master_secret
                 self.vdata = s.wcs.prf.compute_verify_data(con_end, "write",
                                                            handshake_msg, ms)
+                s.verify_data=self.vdata
+                if s.altered_finish == True:
+                    print(" ")
+                    print("Finish Message Before Alteration: [%s]" % repr_hex(self.vdata))
+                    print(" ")
+                    t = self.vdata
+                    t = t[:4] + randstring(1) + t[5:]
+                    if t == self.vdata:
+                        warning("Finished Message was not altered.  Run Test Again!")
+                    else:
+                        self.vdata = t
+                        print("Finish Message After Alteration:  [%s]" % repr_hex(self.vdata))
+                        print(" ")
             else:
                 self.vdata = s.compute_tls13_verify_data(con_end, "write",
                                                          handshake_msg)
+                if s.altered_finish == True:
+                    print(" ")
+                    print("Finish Message Before Alteration: [%s]" % repr_hex(self.vdata))
+                    print(" ")
+                    t = self.vdata
+                    t = t[:4] + randstring(1) + t[5:]
+                    if t == self.vdata:
+                        warning("Finished Message was not altered.  Run Test Again!")
+                    else:
+                        self.vdata = t
+                        print("Finish Message After Alteration:  [%s]" % repr_hex(self.vdata))
+                        print(" ")
         return _TLSHandshake.build(self, *args, **kargs)
 
     def post_dissection(self, pkt):
