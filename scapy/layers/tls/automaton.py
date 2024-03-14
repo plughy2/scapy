@@ -212,8 +212,13 @@ class _TLSAutomaton(Automaton):
         # Maybe we already parsed the expected packet, maybe not.
         if get_next_msg:
             self.get_next_msg()
+        # Fix to address "File "/opt/scapy/scapy/layers/tls/automaton_srv.py", line 466, in should_add_Certificate"
+        # c = self.buffer_out[-1].msg[0].cipher
+        from scapy.layers.tls.handshake import TLSClientHello
         if (not self.buffer_in or
-                not isinstance(self.buffer_in[0], pkt_cls)):
+                (not isinstance(self.buffer_in[0], pkt_cls) and
+                 not (isinstance(self.buffer_in[0], TLSClientHello) and
+                 self.cur_session.advertised_tls_version == 0x0304))):
             return
         self.cur_pkt = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]

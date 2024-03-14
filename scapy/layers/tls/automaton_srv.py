@@ -39,16 +39,17 @@ from scapy.layers.tls.crypto.groups import _tls_named_groups, _nist_curves
 from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH, \
     TLS_Ext_SupportedGroups, TLS_Ext_Cookie, \
     TLS_Ext_SignatureAlgorithms, TLS_Ext_PSKKeyExchangeModes, \
-    TLS_Ext_EarlyDataIndicationTicket
+    TLS_Ext_EarlyDataIndicationTicket, \
+    TLS_Ext_SupportedVersion_CH, TLS_Ext_RenegotiationInfo
 from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH, TLS_Ext_KeyShare_SHCC, \
     KeyShareEntry, TLS_Ext_KeyShare_HRR, TLS_Ext_PreSharedKey_CH, \
     TLS_Ext_PreSharedKey_SH
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, TLSFinished, \
-    TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange, \
+    TLSServerHello, TLSHelloRequest, TLSServerHelloDone, TLSServerKeyExchange, \
     _ASN1CertAndExt, TLS13ServerHello, TLS13ServerHelloCC, TLS13Certificate, TLS13ClientHello, \
-    TLSEncryptedExtensions, TLS13HelloRetryRequest, TLS13CertificateRequest, \
-    TLS13KeyUpdate, TLS13NewSessionTicket
+    TLSEncryptedExtensions, TLSEncryptedExtensionsNDcPP, TLS13HelloRetryRequest, TLS13CertificateRequest, \
+    TLS13KeyUpdate, TLS13KeyUpdateCC, TLS13NewSessionTicket
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
     SSLv2ClientFinished, SSLv2ClientHello, SSLv2ClientMasterKey, \
     SSLv2RequestCertificate, SSLv2ServerFinished, SSLv2ServerHello, \
@@ -112,10 +113,7 @@ class TLSServerAutomaton(_TLSAutomaton):
                    altered_renegotiation_info=False,
                    verify_data=None,
                    valid_renegotiation_info=False,
-                   altered_legacy_session_id=False,
-                   mycert=None, mykey=None,
-                   preferred_ciphersuite=None,
-                   client_auth=False,
+                   altered_legacy_session_id=False,,
                    is_echo_server=True,
                    max_client_idle_time=60,
                    handle_session_ticket=None,
@@ -1163,7 +1161,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             certs = []
             for c in self.cur_session.server_certs:
                 certs += _ASN1CertAndExt(cert=c)
-
+            if self.empty_certificate == True:
+                certs = []
             self.add_msg(TLS13Certificate(certs=certs))
         raise self.tls13_ADDED_CERTIFICATE()
 

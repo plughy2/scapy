@@ -867,6 +867,14 @@ class TLSEncryptedExtensions(_TLSHandshake):
                 else:
                     s.triggered_pwcs_commit = True
 
+class TLSEncryptedExtensionsNDcPP(_TLSHandshake):
+    name = "TLS 1.3 Handshake - Encrypted Extensions"
+    fields_desc = [ByteEnumField("msgtype", 8, _tls_handshake_type),
+            ThreeBytesField("msglen", None),
+            _ExtensionsLenField("extlen", None, length_of="ext"),
+            _ExtensionsField("ext", None,
+                length_from=lambda pkt: pkt.msglen - 2)]
+
 ###############################################################################
 #   Certificate                                                               #
 ###############################################################################
@@ -1868,7 +1876,12 @@ class TLS13KeyUpdate(_TLSHandshake):
         elif s.connection_end == "client":
             s.compute_tls13_next_traffic_secrets("server", "read")
 
-
+class TLS13KeyUpdateCC(_TLSHandshake):
+    name = "TLS 1.3 Handshake - Key Update"
+    fields_desc = [ByteEnumField("msgtype", 24, _tls_handshake_type),
+                   ThreeBytesField("msglen", None),
+                   ByteEnumField("request_update", 0, _key_update_request)]
+                   
 ###############################################################################
 #   All handshake messages defined in this module                             #
 ###############################################################################

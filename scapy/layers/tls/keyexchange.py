@@ -173,6 +173,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
 
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
+        s = self.tls_session
         if (self.tls_session and
                 self.tls_session.tls_version):
             if self.tls_session.tls_version < 0x0303:
