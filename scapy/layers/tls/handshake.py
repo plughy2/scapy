@@ -1112,8 +1112,12 @@ class TLSServerKeyExchange(_TLSHandshake):
                 if s.pwcs.key_exchange.export:
                     cls = ServerRSAParams(tls_session=s)
                 else:
-                    cls = s.pwcs.key_exchange.server_kx_msg_cls(b"\x03")
-                    cls = cls(tls_session=s)
+                    if s.explicit_ecdh_curve == True:
+                        cls = s.pwcs.key_exchange.server_kx_msg_cls(b"\x01")
+                        cls = cls(tls_session=s)
+                    else:
+                        cls = s.pwcs.key_exchange.server_kx_msg_cls(b"\x03")
+                        cls = cls(tls_session=s)
                 try:
                     cls.fill_missing()
                 except Exception:
