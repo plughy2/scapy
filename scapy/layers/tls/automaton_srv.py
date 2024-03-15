@@ -445,10 +445,18 @@ class TLSServerAutomaton(_TLSAutomaton):
                 c = 0x002F
             if self.non_zero_renegotiation_info == True:
                 ext = [TLS_Ext_RenegotiationInfo(reneg_conn_len=0x1)]
-                self.add_msg(TLSServerHello(cipher=c,version=v, ext=ext))
+                p = TLSServerHello(cipher=c,version=v, ext=ext)
+                print ("Contents of Server Hello")
+                p.show2()
+                self.add_msg(p)
+                #self.add_msg(TLSServerHello(cipher=c,version=v, ext=ext))
             if self.valid_renegotiation_info == True or self.altered_renegotiation_info == True:
                 ext = [TLS_Ext_RenegotiationInfo(reneg_conn_len=0x0)]
-                self.add_msg(TLSServerHello(cipher=c,version=v, ext=ext))
+                p = TLSServerHello(cipher=c,version=v, ext=ext)
+                print ("Contents of Server Hello")
+                p.show2()
+                self.add_msg(p)
+                #self.add_msg(TLSServerHello(cipher=c,version=v, ext=ext))
             else:
                 self.add_msg(TLSServerHello(cipher=c,version=v))
         elif self.specify_tls_version == 0x0303 and self.version_confusion == True:
