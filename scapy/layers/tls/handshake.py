@@ -538,6 +538,10 @@ class TLSServerHello(_TLSHandshake):
     def post_build(self, p, pay):
         if self.random_bytes is None:
             p = p[:10] + randstring(28) + p[10 + 28:]
+        s = self.tls_session
+        if s.downgrade_protection == b'DOWNGRD\x01' or s.downgrade_protection == b'DOWNGRD\x00':
+             # We need to modify bytes 30 to 38 as that's what's used below in tls_session_update
+             p = p[:30] + s.downgrade_protection + p[38:]
         return super(TLSServerHello, self).post_build(p, pay)
 
     def tls_session_update(self, msg_str):
@@ -555,26 +559,12 @@ class TLSServerHello(_TLSHandshake):
         s = self.tls_session
         s.tls_version = self.version
         if hasattr(self, 'gmt_unix_time'):
-            self.random_bytes = msg_str[10:38]
-            if s.downgrade_protection == b'DOWNGRD\x01':
-                t = b'DOWNGRD\x01'
-                self.random_bytes = self.random_bytes[:24] + t + self.random_bytes[32:]
-            if s.downgrade_protection == b'DOWNGRD\x00':
-                t = b'DOWNGRD\x00'
-                self.random_bytes = self.random_bytes[:24] + t + self.random_bytes[32:]
+            self.random_bytes = msg_str[10:38]           
             s.server_random = (struct.pack('!I', self.gmt_unix_time) +
                                self.random_bytes)
         else:
             s.server_random = self.random_bytes
-            if s.downgrade_protection == b'DOWNGRD\x01':
-                t = b'DOWNGRD\x01'
-                s.server_random = s.server_random[:30] + t + s.server_random[38:]
-            if s.downgrade_protection == b'DOWNGRD\x00':
-                t = b'DOWNGRD\x00'
-                s.server_random = s.server_random[:30] + t + s.server_random[38:]
         s.sid = self.sid
-        if s.downgrade_protection != None:
-            print("Contents of Random in Server Hello: [%s]" % s.server_random)
 
         if self.ext:
             for e in self.ext:
