@@ -483,6 +483,9 @@ class tlsSession(object):
         self.pre_master_secret = None
         self.master_secret = None
 
+        # need to set downgrade protection to a dummy value
+        self.downgrade_protection = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+
         # The agreed-upon signature algorithm (for TLS 1.2-TLS 1.3 only)
         self.selected_sig_alg = None
 
