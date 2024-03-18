@@ -229,10 +229,9 @@ if args.downgrade_protection == 'tls12':
     downgrade_protection = b'DOWNGRD\x01'
 elif args.downgrade_protection == 'tls11':
     downgrade_protection = b'DOWNGRD\x00'
-elif args.downgrade_protection == None :
-    downgrade_protection = None
 else:
-    downgrade_protection = None
+    # need to set downgrade protection to a dummy value
+    downgrade_protection = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 
 if args.curve:
     curve = args.curve
