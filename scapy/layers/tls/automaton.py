@@ -70,7 +70,7 @@ class _TLSAutomaton(Automaton):
         kwargs["recvsock"] = lambda *args, **kwargs: None
         super(_TLSAutomaton, self).__init__(*args, **kwargs)
 
-    def parse_args(self, mycert=None, mykey=None, **kargs):
+    def parse_args(self, mycert=None, mykey=None, my_alt_cert=None, **kargs):
 
         self.verbose = kargs.pop("verbose", True)
 
@@ -89,6 +89,10 @@ class _TLSAutomaton(Automaton):
         else:
             self.mycert = None
 
+        # my_alt_cert is for cert_cipher_mismatch test
+        if my_alt_cert:
+            self.my_alt_cert = Cert(my_alt_cert)
+            
         if mykey:
             self.mykey = PrivKey(mykey)
         else:

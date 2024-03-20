@@ -92,17 +92,21 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     def parse_args(self, server="127.0.0.1", sport=4433,
                    mycert=None, mykey=None,
+                   # my_alt_cert is for cert_cipher_mismatch test
+                   my_alt_cert=None,
                    preferred_ciphersuite=None,
                    client_auth=False,
                    hello_reset=False,
                    plain_ee=False,
                    missing_finished_message=False,
                    garbled_message=False,
+                   altered_nonce=False,
                    altered_signature=False,
                    altered_finish=False,
                    altered_y_coordinate=False,
                    undefined_TLS_version=None,
                    version_confusion=False,
+                   cert_cipher_mismatch=False,
                    invalid_supported_versions=False,
                    version=None,
                    specify_cipher=None,
@@ -127,6 +131,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
         super(TLSServerAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
+                                                   my_alt_cert=my_alt_cert,
                                                    **kargs)
         try:
             if ':' in server:
@@ -157,10 +162,12 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.plain_ee = plain_ee
         self.missing_finished_message = missing_finished_message
         self.garbled_message = garbled_message
+        self.altered_nonce = altered_nonce
         self.specify_cipher = specify_cipher
         self.altered_signature = altered_signature
         self.altered_y_coordinate = altered_y_coordinate
         self.version_confusion = version_confusion
+        self.cert_cipher_mismatch = cert_cipher_mismatch
         self.invalid_supported_versions = invalid_supported_versions
         self.undefined_TLS_version = undefined_TLS_version
         self.specify_sig_alg = specify_sig_alg
@@ -317,11 +324,13 @@ class TLSServerAutomaton(_TLSAutomaton):
         s = self.cur_session
         s.altered_finish = self.altered_finish
         s.version_confusion = self.version_confusion
+        s.cert_cipher_mismatch = self.cert_cipher_mismatch
         s.invalid_supported_versions = self.invalid_supported_versions
         s.plain_ee = self.plain_ee
         s.verify_data = self.verify_data
         s.missing_finished_message = self.missing_finished_message
         s.garbled_message = self.garbled_message
+        s.altered_nonce = self.altered_nonce
         s.undefined_TLS_version =  self.undefined_TLS_version
         s.altered_signature = self.altered_signature
         s.specify_sig_alg = self.specify_sig_alg
@@ -480,6 +489,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             if self.empty_certificate == True:
                 certs = []
                 self.add_msg(TLSCertificate(certs=certs))
+            elif self.cert_cipher_mismatch:
+                self.add_msg(TLSCertificate(certs=self.my_alt_cert))
             else:
                 self.add_msg(TLSCertificate(certs=self.cur_session.server_certs))
         raise self.ADDED_CERTIFICATE()

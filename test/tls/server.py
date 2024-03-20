@@ -62,10 +62,14 @@ parser.add_argument("--missing_finished_message", action="store_true",
                     help="Send a Key Update message (TLS 1.3) or Server Hello Done message (TLS 1.2) in place of TLS Finished")
 parser.add_argument("--garbled_message", action="store_true",
                     help="Send a garbled message instead of the TLS Finished message (for TLS 1.2)"
+parser.add_argument("--altered_nonce", action="store_true",
+                    help="Send an altered nonce in the Server Hello message (for TLS 1.2)")
 parser.add_argument("--undefined_TLS_version",
                     help="Send a TLS 1.3 Server Hello with TLS 1.3 (or lower draft) version in the legacy field (for TLS 1.3)")
 parser.add_argument("--version_confusion", action="store_true",
                     help="Negotiate a ciphersuite not associated with TLS 1.3.  Requires --ciphersuite with a TLS 1.2 cipher (e.g., 0x003C) OR  Negotiate a TLS 1.3 ciphersuite with TLS 1.2")
+parser.add_argument("--cert_cipher_mismatch", action="store_true",
+                    help="Send a ECDSA server certificate, which does not match TLS ciphersuites requiring an RSA certificate (for TLS 1.2)")
 parser.add_argument("--invalid_supported_versions", action="store_true",
                     help="specify version TLS 1.2 in the Supported Versions TLS Extension instead of TLS 1.3")
 parser.add_argument("--ciphersuite", help="Specify the Ciphersuite this test server must use")
@@ -118,6 +122,7 @@ if args.plaintext_ee:
      plain_ee = True
 else:
     plain_ee = False
+
 if args.missing_finished_message:
     missing_finished_message = True
 else:
@@ -126,7 +131,17 @@ else:
 if args.garbled_message:
     garbled_message = True
 else:
-    garbled_message = False   
+    garbled_message = False
+
+if args.cert_cipher_mismatch:
+    cert_cipher_mismatch = True
+else:
+    cert_cipher_mismatch = False
+   
+if args.altered_nonce:
+    altered_nonce = True
+else:
+    altered_nonce = False
 #v = _tls_version_options.get(args.version, None)
 #if not v:
 #    sys.exit("Unrecognized TLS version option.")
@@ -256,8 +271,10 @@ if args.no_serverAuth:
                        plain_ee=plain_ee,
                        missing_finished_message=missing_finished_message,
                        garbled_message=garbled_message,
+                       altered_nonce = altered_nonce,
                        version=version,
                        version_confusion=version_confusion,
+                       cert_cipher_mismatch=cert_cipher_mismatch,
                        invalid_supported_versions=invalid_supported_versions,
                        specify_cipher=specify_cipher,
                        #cc_ciphers=args.ciphersuite,
@@ -279,6 +296,50 @@ if args.no_serverAuth:
                        psk_mode=psk_mode,
                        sport=args.port,
                        debug=args.debug)
+elif args.cert_cipher_mismatch:
+    t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem"),
+                       mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem"),
+                       my_alt_cert=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_cert.pem"),
+                       my_alt_key=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_key.pem"),
+    #t = TLSServerAutomaton(my_alt_cert=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_cert.pem"),
+    #                   my_alt_key=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_key.pem"),
+    #t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem"),
+                       #mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem"),
+                       preferred_ciphersuite=pcs,
+                       client_auth=args.client_auth,
+                       hello_reset=args.hello_reset,
+                       altered_legacy_session_id=altered_legacy_session_id,
+                       altered_finish=altered_finish,
+                       plain_ee=plain_ee,
+                       missing_finished_message=missing_finished_message,
+                       garbled_message=garbled_message,
+                       altered_nonce = altered_nonce,
+                       version=version,
+                       version_confusion=version_confusion,
+                       cert_cipher_mismatch=cert_cipher_mismatch,
+                       invalid_supported_versions=invalid_supported_versions,
+                       specify_cipher=specify_cipher,
+                       #cc_ciphers=args.ciphersuite,
+                       altered_signature=altered_signature,
+                       altered_y_coordinate=altered_y_coordinate,
+                       undefined_TLS_version=undefined_TLS_version,
+                       specify_sig_alg=specify_sig_alg,
+                       explicit_ecdh_curve=explicit_ecdh_curve,
+                       empty_certificate=empty_certificate,
+                       downgrade_protection=downgrade_protection,
+                       non_zero_renegotiation_info=non_zero_renegotiation_info,
+                       valid_renegotiation_info=valid_renegotiation_info,
+                       altered_renegotiation_info=altered_renegotiation_info,
+                       curve=curve,
+                       cookie=args.cookie,
+                       handle_session_ticket=args.handle_session_ticket,
+                       session_ticket_file=args.session_ticket_file,
+                       psk=args.psk,
+                       psk_mode=psk_mode,
+                       sport=args.port,
+                       debug=args.debug)
+
+
 else:
     #t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_cert.pem"),
     #                   mykey=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_key.pem"),
@@ -292,8 +353,10 @@ else:
                        plain_ee=plain_ee,
                        missing_finished_message=missing_finished_message,
                        garbled_message=garbled_message,
+                       altered_nonce = altered_nonce,
                        version=version,
                        version_confusion=version_confusion,
+                       cert_cipher_mismatch=cert_cipher_mismatch,
                        invalid_supported_versions=invalid_supported_versions,
                        specify_cipher=specify_cipher,
                        #cc_ciphers=args.ciphersuite,
