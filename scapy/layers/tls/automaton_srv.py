@@ -97,6 +97,7 @@ class TLSServerAutomaton(_TLSAutomaton):
                    hello_reset=False,
                    plain_ee=False,
                    missing_finished_message=False,
+                   garbled_message=False,
                    altered_signature=False,
                    altered_finish=False,
                    altered_y_coordinate=False,
@@ -155,6 +156,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.altered_finish = altered_finish 
         self.plain_ee = plain_ee
         self.missing_finished_message = missing_finished_message
+        self.garbled_message = garbled_message
         self.specify_cipher = specify_cipher
         self.altered_signature = altered_signature
         self.altered_y_coordinate = altered_y_coordinate
@@ -319,6 +321,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         s.plain_ee = self.plain_ee
         s.verify_data = self.verify_data
         s.missing_finished_message = self.missing_finished_message
+        s.garbled_message = self.garbled_message
         s.undefined_TLS_version =  self.undefined_TLS_version
         s.altered_signature = self.altered_signature
         s.specify_sig_alg = self.specify_sig_alg
@@ -675,6 +678,9 @@ class TLSServerAutomaton(_TLSAutomaton):
         if self.missing_finished_message is True:
             # send a ServerHelloDone instead of Finished
             self.add_msg(TLSServerHelloDone())
+        elif self.garbled_message is True:
+            p = b'@D\t\x94\xae\xc0\xb4\xc6\xba\xfcv\x99Lp\x8e\xf6~"\xbb2\x92\xa5\x91\xf8\x18\x7f\xbe\x13'
+            self.add_msg(p)
         else:
             self.add_msg(TLSFinished())
         raise self.ADDED_SERVERFINISHED()

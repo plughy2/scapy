@@ -59,7 +59,9 @@ parser.add_argument("--altered_signature", action="store_true",
 parser.add_argument("--altered_y_coordinate", action="store_true",
                     help="Send an Altered y coordinate to Client (for TLS 1.3).  Requires --curve argument. Requires the Client to provide a NIST curve in the Key Share Group")
 parser.add_argument("--missing_finished_message", action="store_true",
-                    help="Send a Random TLS 1.3 message in place of TLS Finished Message (for TLS 1.3)")
+                    help="Send a Key Update message (TLS 1.3) or Server Hello Done message (TLS 1.2) in place of TLS Finished")
+parser.add_argument("--garbled_message", action="store_true",
+                    help="Send a garbled message instead of the TLS Finished message (for TLS 1.2)"
 parser.add_argument("--undefined_TLS_version",
                     help="Send a TLS 1.3 Server Hello with TLS 1.3 (or lower draft) version in the legacy field (for TLS 1.3)")
 parser.add_argument("--version_confusion", action="store_true",
@@ -121,6 +123,10 @@ if args.missing_finished_message:
 else:
     missing_finished_message = False
 
+if args.garbled_message:
+    garbled_message = True
+else:
+    garbled_message = False   
 #v = _tls_version_options.get(args.version, None)
 #if not v:
 #    sys.exit("Unrecognized TLS version option.")
@@ -249,6 +255,7 @@ if args.no_serverAuth:
                        altered_finish=altered_finish,
                        plain_ee=plain_ee,
                        missing_finished_message=missing_finished_message,
+                       garbled_message=garbled_message,
                        version=version,
                        version_confusion=version_confusion,
                        invalid_supported_versions=invalid_supported_versions,
@@ -284,6 +291,7 @@ else:
                        altered_finish=altered_finish,
                        plain_ee=plain_ee,
                        missing_finished_message=missing_finished_message,
+                       garbled_message=garbled_message,
                        version=version,
                        version_confusion=version_confusion,
                        invalid_supported_versions=invalid_supported_versions,
