@@ -129,8 +129,6 @@ class TLSClientAutomaton(_TLSAutomaton):
                    reject_tls12_renegotiation = False,
                    no_renegotiation_info_2nd_ch=False,
                    altered_renegotiation_info=False,
-                   sg=None,
-                   #
                    mycert=None, mykey=None,
                    client_hello=None, version=None,
                    resumption_master_secret=None,
@@ -141,6 +139,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                    ciphersuite=None,
                    curve=None,
                    supported_groups=None,
+                   force_hello_retry=False,
                    **kargs):
 
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
@@ -176,10 +175,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.provide_early_data = provide_early_data
         self.altered_pre_master_secret = altered_pre_master_secret
         self.specify_sig_alg = specify_sig_alg
-        if sg != None:
-            self.sg = sg
-        else:
-            self.sg = None
+        self.force_hello_retry = force_hello_retry
 
         if isinstance(client_hello, (TLSClientHello, TLS13ClientHello)):
             self.client_hello = client_hello
@@ -203,9 +199,11 @@ class TLSClientAutomaton(_TLSAutomaton):
         else:
             self.data_to_send = []
 
-        if supported_groups is None:
-            supported_groups = ["secp256r1", "secp384r1", "secp521r1"]
         self.supported_groups = supported_groups
+        if self.supported_groups is None:
+            self.supported_groups = ["secp256r1", "secp384r1", "secp521r1"]
+        if self.force_hello_retry:
+            self.supported_groups = ["secp192r1", "secp224r1", "secp256r1"]
         self.curve = None
 
         if self.advertised_tls_version == 0x0304:
@@ -400,8 +398,8 @@ class TLSClientAutomaton(_TLSAutomaton):
             p = TLSClientHello()
         ext = []
         sigs = ["sha1+rsa", "sha256+rsa", "sha384+rsa", "sha1+ecdsa", "sha256+ecdsa", "sha384+ecdsa", "sha384+rsaepss", "sha384+rsapss"]
-        if self.sg != None:
-            supported_groups = self.sg
+        if self.supported_groups != None:
+            supported_groups = self.supported_groups
             # Add TLS_Ext_SignatureAlgorithms for TLS 1.2 ClientHello
         if self.cur_session.advertised_tls_version == 0x0303:
             if self.empty_pubkey == True:
@@ -476,7 +474,10 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def MISSING_SERVERHELLO(self):
-        self.vprint("Missing TLS ServerHello message!")
+        #self.vprint("Missing TLS ServerHello message!")
+        self.vprint(" ")
+        self.vprint("The tool has received a fatal alert from the TOE, tentatively passing the test.  Review the output and/or packet capture to confirm the results.")
+        self.vprint(" ")
         raise self.CLOSE_NOTIFY()
 
     @ATMT.condition(HANDLED_SERVERHELLO, prio=1)
@@ -1646,6 +1647,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                 print("Contents of x y coordinate after altering:  [%s]" % repr_hex(p['Key Share Entry'][0].key_exchange))
                 print(" ")
         self.add_msg(p)
+         p.display()
         raise self.TLS13_ADDED_CLIENTHELLO()
 
     @ATMT.state()
@@ -1706,7 +1708,10 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_ALERT_FROM_SERVERFLIGHT1(self):
-        self.vprint("Received Alert message !")
+        #self.vprint("Received Alert message !")
+        self.vprint(" ")
+        self.vprint("The tool has received a fatal alert from the TOE, tentatively passing the test.  Review the output and/or packet capture to confirm the results.")
+        self.vprint(" ")
         self.vprint(self.cur_pkt.mysummary())
         if self.missing_finished_message or self.altered_finish:
             if self.advertised_tls_version == 0x0304:

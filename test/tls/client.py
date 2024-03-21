@@ -51,8 +51,11 @@ parser.add_argument("--empty_certificate", action="store_true", help="Supply an 
 parser.add_argument("--missing_finished_message", action="store_true",
                     help="Send an Application Message containing random data in place of the TLS Finished Message (for TLS 1.3)")
 parser.add_argument("--altered_pre_master_secret", action="store_true", help="Send and altered Encrypted Pre Master Secret for RSA Key Exchange (for TLS 1.2)")
-parser.add_argument("--supported_group",
+parser.add_argument("--supported_groups",
                     help="Provide a single supported_group (for TLS 1.3)")
+parser.add_argument("--force_hello_retry", action="store_true",
+                    help="Force the Server to respond with a Hello Retry Request message (for TLS 1.3)")
+parser.add_argument("--curve", help="ECC group to advertise")
 parser.add_argument("--no_pfs", action="store_true",
                     help="Disable (EC)DHE exchange with PFS")
 parser.add_argument("--ciphersuite", help="Ciphersuite preference")
@@ -64,7 +67,6 @@ parser.add_argument("--non_zero_renegotiation_info", action="store_true", help="
 parser.add_argument("--valid_renegotiation_info", action="store_true", help="Provide a compliant value in the renegotiation_info extension of TLS 1.2 Client Hello message")
 parser.add_argument("--altered_renegotiation_info", action="store_true", help="Complete a TLS 1.2 handshake and send a Client Hello with a renegotiation_info extension that has altered verify_data")
 parser.add_argument("--reject_tls12_renegotiation", action="store_true", help="This argument specifies the TLS 1.2 Server rejects renegotiation")
-#parser.add_argument("--altered_pre_master_secret", action="store_true", help="Send and altered Encrypted Pre Master Secret for RSA Key Exchange (for TLS 1.2)")
 parser.add_argument("--version", help="TLS Version", default="tls13")
 parser.add_argument("--psk",
                     help="External PSK for symmetric authentication (for TLS 1.3)")  # noqa: E501
@@ -76,7 +78,6 @@ parser.add_argument("--res_master",
                     help="Resumption master secret (for TLS 1.3)")
 parser.add_argument("--sni",
                     help="Server Name Indication")
-parser.add_argument("--curve", help="ECC group to advertise")
 parser.add_argument("--debug", action="store_const", const=5, default=0,
                     help="Enter debug mode")
 parser.add_argument("server", nargs="?", default="127.0.0.1",
@@ -215,6 +216,16 @@ if args.specify_sig_alg:
 else:
     specify_sig_alg = None
 
+if args.supported_groups:
+    supported_groups = args.supported_groups
+else:
+    supported_groups = None
+
+if args.force_hello_retry:
+    force_hello_retry = True
+else:
+    force_hello_retry = False
+
 t = TLSClientAutomaton(server=args.server, dport=args.port,
                        server_name=server_name,
                        client_hello=ch,
@@ -237,7 +248,8 @@ t = TLSClientAutomaton(server=args.server, dport=args.port,
                        reject_tls12_renegotiation=reject_tls12_renegotiation,
                        no_renegotiation_info_2nd_ch = no_renegotiation_info_2nd_ch,
                        altered_renegotiation_info=altered_renegotiation_info,
-                       sg=args.supported_group,
+                       supported_groups=supported_groups,
+                       force_hello_retry=force_hello_retry,
                        mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem"),
                        mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem"),
                        psk=args.psk,
