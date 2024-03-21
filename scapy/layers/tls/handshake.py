@@ -561,21 +561,30 @@ class TLSServerHello(_TLSHandshake):
         if hasattr(self, 'gmt_unix_time'):
             self.random_bytes = msg_str[10:38]
             if s.altered_nonce:
-                print(" ")
-                print("Contents of random_bytes before one byte alteration: [%s]" % self.random_bytes)
-                self.random_bytes = self.random_bytes[:14] + randstring(1) + self.random_bytes[15:]
-                print("Contents of random_bytes after one byte alteration: [%s]" % self.random_bytes)
-                print(" ")           
+                altered_random_bytes = self.random_bytes[:14] + randstring(1) + self.random_bytes[15:]
+                if altered_random_bytes == self.random_bytes:
+                    warning("random_bytes was not altered.  Run Test Again!")
+                else:
+                    print(" ")
+                    print("Contents of random_bytes before one byte alteration: [%s]" % self.random_bytes)
+                    self.random_bytes = altered_random_bytes
+                    print("Contents of random_bytes after one byte alteration: [%s]" % self.random_bytes)
+                    print(" ")          
             s.server_random = (struct.pack('!I', self.gmt_unix_time) +
                                self.random_bytes)
         else:
             s.server_random = self.random_bytes
             if s.altered_nonce:
-                print(" ")
-                print("Contents of random_bytes before one byte alteration: [%s]" % self.random_bytes)
-                self.random_bytes = self.random_bytes[:14] + randstring(1) + self.random_bytes[15:]
-                print("Contents of random_bytes after one byte alteration: [%s]" % self.random_bytes)
-                print(" ")
+                altered_random_bytes = s.server_random[:14] + randstring(1) + s.server_random[15:]
+                if altered_random_bytes == s.server_random:
+                    warning("random_bytes was not altered.  Run Test Again!")
+                else:
+                    print(" ")
+                    print("Contents of random_bytes before one byte alteration: [%s]" % s.server_random)
+                    s.server_random = altered_random_bytes
+                    print("Contents of random_bytes after one byte alteration: [%s]" % s.server_random)
+                    print(" ")
+
         s.sid = self.sid
 
         if self.ext:

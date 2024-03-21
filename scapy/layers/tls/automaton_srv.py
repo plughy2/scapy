@@ -580,7 +580,10 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_ALERT_FROM_CLIENTCERTIFICATE(self):
-        self.vprint("Received Alert message instead of ClientKeyExchange!")
+        #self.vprint("Received Alert message instead of ClientKeyExchange!")
+        self.vprint(" ")
+        self.vprint("The tool has received a fatal alert from the TOE, tentatively passing the test.  Review the output and/or packet capture to confirm the results.")
+        self.vprint(" ")
         self.vprint(self.cur_pkt.mysummary())
         raise self.CLOSE_NOTIFY()
 
@@ -711,7 +714,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SENT_SERVERFLIGHT2(self):
-        if self.missing_finished_message is False:
+        if self.missing_finished_message or self.garbled_message is False:
             self.vprint("TLS handshake completed!")
             self.vprint_sessioninfo()
             if self.hello_reset:
@@ -1244,7 +1247,9 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def TLS13_HANDLED_ALERT_FROM_CLIENTCERTIFICATE(self):
         #self.vprint("Received Alert message instead of ClientKeyExchange!")
-        self.vprint("Received Alert message!")
+        self.vprint(" ")
+        self.vprint("The tool has received a fatal alert from the TOE, tentatively passing the test.  Review the output and/or packet capture to confirm the results.")
+        self.vprint(" ")
         self.vprint(self.cur_pkt.mysummary())
         if self.altered_signature or self.altered_finish or self.altered_y_coordinate or self.specify_sig_alg or self.empty_certificate:
             self.print_tls13secrets()
@@ -1390,7 +1395,13 @@ class TLSServerAutomaton(_TLSAutomaton):
                 if line.startswith(b"stop_server"):
                     raise self.CLOSE_NOTIFY_FINAL()
         elif isinstance(p, TLSAlert):
-            print("> Received: %r" % p)
+            if self.missing_finished_message or self.altered_finish or self.garbled_message:
+                self.vprint(" ")
+                self.vprint("The tool has received a fatal alert from the TOE, tentatively passing the test.  Review the output and/or packet capture to confirm the results.")
+                self.vprint(" ")
+                print("> Received: %r" % p)
+            else:
+                print("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
         elif isinstance(p, TLS13KeyUpdate):
             print("> Received: %r" % p)
