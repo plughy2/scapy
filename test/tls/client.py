@@ -31,8 +31,6 @@ parser = ArgumentParser(description='Simple TLS Client')
 #                    help="External PSK for symmetric authentication (for TLS 1.3)")  # noqa: E501
 parser.add_argument("--altered_finish", action="store_true",
                     help="Send an Altered Finish Message to Server")
-#parser.add_argument("--supported_group",
-#                    help="Provide a single supported_group (for TLS 1.3)")
 parser.add_argument("--altered_y_coordinate", action="store_true",
                     help="Send an Altered y coordinate to Server (for TLS 1.3 and 1.2).  Can be used with the --curve argument.")
 parser.add_argument("--use_legacy", action="store_true",
@@ -67,6 +65,10 @@ parser.add_argument("--non_zero_renegotiation_info", action="store_true", help="
 parser.add_argument("--valid_renegotiation_info", action="store_true", help="Provide a compliant value in the renegotiation_info extension of TLS 1.2 Client Hello message")
 parser.add_argument("--altered_renegotiation_info", action="store_true", help="Complete a TLS 1.2 handshake and send a Client Hello with a renegotiation_info extension that has altered verify_data")
 parser.add_argument("--reject_tls12_renegotiation", action="store_true", help="This argument specifies the TLS 1.2 Server rejects renegotiation")
+arser.add_argument("--altered_signature", action="store_true",
+                    help="Send an Altered Signature for Certificate Verify message (for TLS 1.2)")
+parser.add_argument("--no_clientAuth", action="store_true",
+                    help="Client sends a certificate without clientAuth extendedKeyUsage extension")
 parser.add_argument("--version", help="TLS Version", default="tls13")
 parser.add_argument("--psk",
                     help="External PSK for symmetric authentication (for TLS 1.3)")  # noqa: E501
@@ -226,6 +228,15 @@ if args.force_hello_retry:
 else:
     force_hello_retry = False
 
+if args.altered_signature:
+    altered_signature = True
+else:
+    altered_signature = False
+
+if args.no_clientAuth:
+    mycert = scapy_path("/test/tls/pki/ubuntu_2004_cert-no_clientAuth.pem")
+else:
+    mycert = scapy_path("/test/tls/pki/ubuntu_2004_cert-clientAuth.pem")
 t = TLSClientAutomaton(server=args.server, dport=args.port,
                        server_name=server_name,
                        client_hello=ch,
@@ -250,7 +261,8 @@ t = TLSClientAutomaton(server=args.server, dport=args.port,
                        altered_renegotiation_info=altered_renegotiation_info,
                        supported_groups=supported_groups,
                        force_hello_retry=force_hello_retry,
-                       mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem"),
+                       #mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem"),
+                       mycert=mycert,
                        mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem"),
                        psk=args.psk,
                        psk_mode=psk_mode,
@@ -258,5 +270,6 @@ t = TLSClientAutomaton(server=args.server, dport=args.port,
                        session_ticket_file_in=args.session_ticket_file_in,
                        session_ticket_file_out=args.session_ticket_file_out,
                        curve=args.curve,
+                       altered_signature=altered_signature,
                        debug=args.debug)
 t.run()

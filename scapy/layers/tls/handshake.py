@@ -1334,7 +1334,6 @@ class TLSCertificateVerify(_TLSHandshake):
             self.sig = _TLSSignature(tls_session=s)
             if s.connection_end == "client":
                 self.sig._update_sig(m, s.client_key)
-                s.altered_signature = False
                 if s.altered_signature == True:
                     print(" ")
                     print("Certificate Verify Message Before Test Client Alteration: [%s]" % repr_hex(self.sig.sig_val))

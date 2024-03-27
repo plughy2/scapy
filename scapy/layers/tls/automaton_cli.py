@@ -50,6 +50,7 @@ from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.extensions import (
+    TLS_Ext_ServerName,
     ServerName,
     TLS_Ext_PSKKeyExchangeModes,
     TLS_Ext_PostHandshakeAuth,
@@ -59,10 +60,11 @@ from scapy.layers.tls.extensions import (
     TLS_Ext_SupportedGroups,
     TLS_Ext_SupportedVersion_CH,
     TLS_Ext_SupportedVersion_SH,
+    TLS_Ext_EarlyDataIndication
 )
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, \
-    TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
+    TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, TLSHelloRequest, \
     TLSServerKeyExchange, TLS13Certificate, TLS13ClientHello,  \
     TLS13ServerHello, TLS13HelloRetryRequest, TLS13CertificateRequest, \
     _ASN1CertAndExt, TLS13KeyUpdate, TLS13NewSessionTicket
@@ -140,6 +142,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                    curve=None,
                    supported_groups=None,
                    force_hello_retry=False,
+                   altered_signature=False,
                    **kargs):
 
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
@@ -154,6 +157,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.local_port = None
         self.socket = None
         #
+        self.altered_signature = altered_signature
         self.altered_finish = altered_finish
         self.missing_finished_message = missing_finished_message
         self.altered_y_coordinate = altered_y_coordinate
@@ -297,6 +301,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         s.client_certs = self.mycert
         s.client_key = self.mykey
         #
+        s.altered_signature = self.altered_signature
         s.altered_finish = self.altered_finish
         s.downgrade_protection = self.downgrade_protection
         s.altered_y_coordinate = self.altered_y_coordinate
@@ -761,6 +766,12 @@ class TLSClientAutomaton(_TLSAutomaton):
         if self.linebreak:
             data += b"\n"
         self.add_record()
+        if self.force_fatal_alert == True:
+            p=(TLSApplicationData(data=b'\xEF\xBB\xBF'))
+            self.add_msg(p)
+            self.vprint("Sending altered application data to the Server to force a fatal alert")
+            self.flush_recordsCC()
+        else:
         self.add_msg(TLSApplicationData(data=data))
         raise self.ADDED_CLIENTDATA()
 
@@ -899,13 +910,6 @@ class TLSClientAutomaton(_TLSAutomaton):
         else:
             self.vprint("Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
-        if self.force_fatal_alert == True:
-            self.add_record()
-            p=(TLSApplicationData(data=b'\xEF\xBB\xBF'))
-            self.add_msg(p)
-            self.flush_recordsCC()
-            self.vprint("Sent altered application data to the Server to force a fatal alert")
-            raise self.HANDLED_SERVERDATA()
         if self.valid_renegotiation_info == True or self.non_zero_renegotiation_info == True or self.no_renegotiation_info_2nd_ch == True or self.altered_renegotiation_info == True or self.reject_tls12_renegotiation == True:
             raise self.PREPARE_CLIENTFLIGHT1_REG()
         else:
@@ -1063,8 +1067,8 @@ class TLSClientAutomaton(_TLSAutomaton):
         #XXX We should check the CertificateRequest attributes for discrepancies
         #with the cipher suite, etc.
         #"""
-        #self.raise_on_packet(TLSCertificateRequest,
-        #                 self.HANDLED_CERTIFICATEREQUEST_REG)
+        self.raise_on_packet(TLSCertificateRequest,
+                         self.HANDLED_CERTIFICATEREQUEST_REG)
 
     @ATMT.condition(HANDLED_SERVERKEYEXCHANGE_REG, prio=2)
     def should_handle_CertificateRequest_from_ServerKeyExchange_Reg(self):
@@ -1082,7 +1086,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     def should_handle_ServerHelloDone_from_ServerKeyExchange_Reg(self):
         return self.should_handle_ServerHelloDone_Reg()
 
-    @ATMT.condition(HANDLED_CERTIFICATEREQUEST_REG, prio=4)
+    @ATMT.condition(HANDLED_CERTIFICATEREQUEST_REG)
     def should_handle_ServerHelloDone_from_CertificateRequest_Reg(self):
         return self.should_handle_ServerHelloDone_Reg()
 
@@ -1610,6 +1614,8 @@ class TLSClientAutomaton(_TLSAutomaton):
                 psk_binder_entry = PSKBinderEntry(binder_len=hash_len,
                                                   binder=b"\x00" * hash_len)
 
+                if self.provide_early_data == True:
+                     ext += TLS_Ext_EarlyDataIndication()
                 ext += TLS_Ext_PreSharedKey_CH(identities=[psk_id],
                                                binders=[psk_binder_entry])
             else:
@@ -1661,7 +1667,14 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.condition(TLS13_SENDING_CLIENTFLIGHT1)
     def tls13_should_send_ClientFlight1(self):
         self.flush_records()
-        raise self.TLS13_SENT_CLIENTFLIGHT1()
+        if self.provide_early_data == True:
+            data = b'GET / HTTP/1.1\r\nHOST: localhost\r\n\r\n'
+            self.add_record()
+            self.add_msg(TLSApplicationData(data=data))
+            self.flush_records()
+            raise self.TLS13_SENT_CLIENTFLIGHT1()
+        else:
+            raise self.TLS13_SENT_CLIENTFLIGHT1()
 
     @ATMT.state()
     def TLS13_SENT_CLIENTFLIGHT1(self):

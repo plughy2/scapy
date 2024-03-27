@@ -855,8 +855,11 @@ class TLSServerAutomaton(_TLSAutomaton):
             kx = "RSA"
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
-        usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
-        c = usable_suites[0]
+        if self.specify_cipher:
+            c = self.specify_cipher
+        else:
+            usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
+            c = usable_suites[0]
         ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3"),
                TLS_Ext_KeyShare_HRR(selected_group=_tls_named_groups[self.curve])]  # noqa: E501
         if self.cookie:

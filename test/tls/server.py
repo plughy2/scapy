@@ -258,93 +258,29 @@ if args.curve:
     curve = args.curve
 else:
     curve = None
-if args.no_serverAuth:
-    #t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_cert-no_serverauth.pem"),
-    #                   mykey=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_key.pem"),
-    t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert-no_serverauth.pem"),
-                       mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem"),
-                       preferred_ciphersuite=pcs,
-                       client_auth=args.client_auth,
-                       hello_reset=args.hello_reset,
-                       altered_legacy_session_id=altered_legacy_session_id,
-                       altered_finish=altered_finish,
-                       plain_ee=plain_ee,
-                       missing_finished_message=missing_finished_message,
-                       garbled_message=garbled_message,
-                       altered_nonce = altered_nonce,
-                       version=version,
-                       version_confusion=version_confusion,
-                       cert_cipher_mismatch=cert_cipher_mismatch,
-                       invalid_supported_versions=invalid_supported_versions,
-                       specify_cipher=specify_cipher,
-                       #cc_ciphers=args.ciphersuite,
-                       altered_signature=altered_signature,
-                       altered_y_coordinate=altered_y_coordinate,
-                       undefined_TLS_version=undefined_TLS_version,
-                       specify_sig_alg=specify_sig_alg,
-                       explicit_ecdh_curve=explicit_ecdh_curve,
-                       empty_certificate=empty_certificate,
-                       downgrade_protection=downgrade_protection,
-                       non_zero_renegotiation_info=non_zero_renegotiation_info,
-                       valid_renegotiation_info=valid_renegotiation_info,
-                       altered_renegotiation_info=altered_renegotiation_info,
-                       curve=curve,
-                       cookie=args.cookie,
-                       handle_session_ticket=args.handle_session_ticket,
-                       session_ticket_file=args.session_ticket_file,
-                       psk=args.psk,
-                       psk_mode=psk_mode,
-                       sport=args.port,
-                       debug=args.debug)
-elif args.cert_cipher_mismatch:
-    t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem"),
-                       mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem"),
-                       my_alt_cert=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_cert.pem"),
-                       my_alt_key=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_key.pem"),
-    #t = TLSServerAutomaton(my_alt_cert=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_cert.pem"),
-    #                   my_alt_key=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_key.pem"),
-    #t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem"),
-                       #mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem"),
-                       preferred_ciphersuite=pcs,
-                       client_auth=args.client_auth,
-                       hello_reset=args.hello_reset,
-                       altered_legacy_session_id=altered_legacy_session_id,
-                       altered_finish=altered_finish,
-                       plain_ee=plain_ee,
-                       missing_finished_message=missing_finished_message,
-                       garbled_message=garbled_message,
-                       altered_nonce = altered_nonce,
-                       version=version,
-                       version_confusion=version_confusion,
-                       cert_cipher_mismatch=cert_cipher_mismatch,
-                       invalid_supported_versions=invalid_supported_versions,
-                       specify_cipher=specify_cipher,
-                       #cc_ciphers=args.ciphersuite,
-                       altered_signature=altered_signature,
-                       altered_y_coordinate=altered_y_coordinate,
-                       undefined_TLS_version=undefined_TLS_version,
-                       specify_sig_alg=specify_sig_alg,
-                       explicit_ecdh_curve=explicit_ecdh_curve,
-                       empty_certificate=empty_certificate,
-                       downgrade_protection=downgrade_protection,
-                       non_zero_renegotiation_info=non_zero_renegotiation_info,
-                       valid_renegotiation_info=valid_renegotiation_info,
-                       altered_renegotiation_info=altered_renegotiation_info,
-                       curve=curve,
-                       cookie=args.cookie,
-                       handle_session_ticket=args.handle_session_ticket,
-                       session_ticket_file=args.session_ticket_file,
-                       psk=args.psk,
-                       psk_mode=psk_mode,
-                       sport=args.port,
-                       debug=args.debug)
 
+if args.no_serverAuth:
+    mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert-no_serverauth.pem")
+    mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem")
+    my_alt_cert = None
+    my_alt_key = None
+
+elif args.cert_cipher_mismatch:
+    mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem")
+    mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem")
+    my_alt_cert=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_cert.pem")
+    my_alt_key=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_key.pem")
 
 else:
-    #t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_cert.pem"),
-    #                   mykey=scapy_path("/test/tls/pki/ubuntu_2004_ecdsa_key.pem"),
-    t = TLSServerAutomaton(mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem"),
-                       mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem"),
+    mycert=scapy_path("/test/tls/pki/ubuntu_2004_cert.pem")
+    mykey=scapy_path("/test/tls/pki/ubuntu_2004_key.pem")
+    my_alt_cert = None
+    my_alt_key = None
+    
+t = TLSServerAutomaton(mycert=mycert,
+                       mykey=mykey,
+                       my_alt_cert=my_alt_cert,
+                       my_alt_key=my_alt_key,
                        preferred_ciphersuite=pcs,
                        client_auth=args.client_auth,
                        hello_reset=args.hello_reset,
