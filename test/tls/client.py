@@ -65,7 +65,7 @@ parser.add_argument("--non_zero_renegotiation_info", action="store_true", help="
 parser.add_argument("--valid_renegotiation_info", action="store_true", help="Provide a compliant value in the renegotiation_info extension of TLS 1.2 Client Hello message")
 parser.add_argument("--altered_renegotiation_info", action="store_true", help="Complete a TLS 1.2 handshake and send a Client Hello with a renegotiation_info extension that has altered verify_data")
 parser.add_argument("--reject_tls12_renegotiation", action="store_true", help="This argument specifies the TLS 1.2 Server rejects renegotiation")
-arser.add_argument("--altered_signature", action="store_true",
+parser.add_argument("--altered_signature", action="store_true",
                     help="Send an Altered Signature for Certificate Verify message (for TLS 1.2)")
 parser.add_argument("--no_clientAuth", action="store_true",
                     help="Client sends a certificate without clientAuth extendedKeyUsage extension")

@@ -772,7 +772,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             self.vprint("Sending altered application data to the Server to force a fatal alert")
             self.flush_recordsCC()
         else:
-        self.add_msg(TLSApplicationData(data=data))
+            self.add_msg(TLSApplicationData(data=data))
         raise self.ADDED_CLIENTDATA()
 
     @ATMT.condition(WAIT_CLIENTDATA, prio=2)
@@ -928,7 +928,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                     self.PREPARE_CLIENTFLIGHT1_REG)
         else:
             self.get_next_msg(30, 1)
-         self.raise_on_packet(TLSHelloRequest,
+            self.raise_on_packet(TLSHelloRequest,
                     self.PREPARE_CLIENTFLIGHT1_REG)
         raise self.PREPARE_CLIENTFLIGHT1_REG()
 
@@ -1653,7 +1653,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                 print("Contents of x y coordinate after altering:  [%s]" % repr_hex(p['Key Share Entry'][0].key_exchange))
                 print(" ")
         self.add_msg(p)
-         p.display()
+        p.display()
         raise self.TLS13_ADDED_CLIENTHELLO()
 
     @ATMT.state()

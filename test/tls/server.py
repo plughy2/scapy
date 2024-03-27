@@ -61,7 +61,7 @@ parser.add_argument("--altered_y_coordinate", action="store_true",
 parser.add_argument("--missing_finished_message", action="store_true",
                     help="Send a Key Update message (TLS 1.3) or Server Hello Done message (TLS 1.2) in place of TLS Finished")
 parser.add_argument("--garbled_message", action="store_true",
-                    help="Send a garbled message instead of the TLS Finished message (for TLS 1.2)"
+                    help="Send a garbled message instead of the TLS Finished message (for TLS 1.2)")
 parser.add_argument("--altered_nonce", action="store_true",
                     help="Send an altered nonce in the Server Hello message (for TLS 1.2)")
 parser.add_argument("--undefined_TLS_version",

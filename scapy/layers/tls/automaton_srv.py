@@ -118,7 +118,7 @@ class TLSServerAutomaton(_TLSAutomaton):
                    altered_renegotiation_info=False,
                    verify_data=None,
                    valid_renegotiation_info=False,
-                   altered_legacy_session_id=False,,
+                   altered_legacy_session_id=False,
                    is_echo_server=True,
                    max_client_idle_time=60,
                    handle_session_ticket=None,
