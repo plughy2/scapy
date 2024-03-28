@@ -707,9 +707,10 @@ class TLSServerAutomaton(_TLSAutomaton):
     def should_send_ServerFlight2(self):
         self.flush_records()
         s = self.cur_session
-        client_verify_data = self.cur_pkt.vdata
-        server_verify_data = s.verify_data
-        self.renegotiated_connection = client_verify_data + server_verify_data
+        if self.valid_renegotiation_info or self.altered_renegotiation_info:
+            client_verify_data = self.cur_pkt.vdata
+            server_verify_data = s.verify_data
+            self.renegotiated_connection = client_verify_data + server_verify_data
         raise self.SENT_SERVERFLIGHT2()
 
     @ATMT.state()
