@@ -118,11 +118,13 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
         # "Note, however, that subsequent post-handshake authentications do not
         # include each other, just the messages through the end of the main
         # handshake."
-        if self.tls_session.post_handshake:
-            self.tls_session.post_handshake_messages.append(msg_str)
-        else:
-            self.tls_session.handshake_messages.append(msg_str)
-            self.tls_session.handshake_messages_parsed.append(self)
+        self.tls_session.handshake_messages.append(msg_str)
+        self.tls_session.handshake_messages_parsed.append(self
+        #if self.tls_session.post_handshake:
+        #    self.tls_session.post_handshake_messages.append(msg_str)
+        #else:
+        #    self.tls_session.handshake_messages.append(msg_str)
+        #    self.tls_session.handshake_messages_parsed.append(self)
 
 
 ###############################################################################
